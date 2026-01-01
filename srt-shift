@@ -1,0 +1,101 @@
+#!/usr/local/bin/lua
+
+function shift_arg() 
+    if #arg == 0 then
+        return nil
+    end
+    r = arg[1]
+    table.remove(arg, 1)
+    return r
+end
+
+function add_timeshift(str, d) 
+    time_pattern = "^(%d+):(%d+):(%d+),(%d+)$"
+    h, m, s, ms = string.match(str, time_pattern)
+
+    time = tonumber(h) * 60 + tonumber(m)
+    time = time * 60 + tonumber(s)
+    time = time * 1000 + tonumber(ms)
+    time = math.tointeger(time + d)
+    if time < 0 then return nil end
+    ms = time % 1000
+    time = time // 1000
+    s = time % 60
+    time = time // 60
+    m = time % 60
+    time = time // 60
+    h = time
+    assert(h < 100)
+
+    return string.format("%02d:%02d:%02d,%03d", h, m, s, ms)
+end
+
+input_path = nil
+output_path = nil
+timeshift = nil
+
+while true do
+    cmd = shift_arg()
+    if cmd == nil then
+        break
+    elseif cmd == "-o" then
+        -- TODO: add possibility to specify output file
+        assert(false)
+    elseif cmd == "-d" then
+        time_str = shift_arg()
+        timeshift = tonumber(time_str)
+        assert(type(timeshift) == "number")
+        assert(math.type(timeshift) == "integer")
+    else
+        assert(input_path == nil)
+        input_path = cmd
+    end
+end
+
+if timeshift == nil then
+    error("No timeshift value given")
+end
+
+input_file = io.open(input_path, "r")
+if io.type(input_file) ~= "file" then
+    error(string.format("Could not open file '%p'", input_path))
+end
+
+if output_path == nil then
+    -- TODO: better modify the input path instead of using a generic name
+    output_path = "out.srt"
+end
+output_file = io.open(output_path, "w")
+if io.type(output_file) ~= "file" then
+    error(string.format("Could not open file '%p'", output_path))
+end
+
+state = "nr"
+for l in input_file:lines("L") do
+    if state == "nr" then
+        output_file:write(l)
+        state = "time"
+    elseif state == "time" then
+        t1, t2, rest = string.match(l, "^(%g*) %-%-> (%g*)(.*)")
+
+        t1 = add_timeshift(t1, timeshift)
+        t2 = add_timeshift(t2, timeshift)
+        assert(t1)
+        assert(t2)
+        -- TODO: account for t1, t2 being nil (in case of timeshift being to big)
+
+        new_l = string.format("%s --> %s%s", t1, t2, rest)
+        output_file:write(new_l);
+        state = "content"
+    elseif state == "content" then
+        output_file:write(l)
+        if (string.match(l, "^%s*$")) then
+            state = "nr"
+        end
+    else
+        error("state was assigned wrong")
+    end
+end
+
+io.close(output_file)
+io.close(input_file)
