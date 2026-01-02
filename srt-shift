@@ -9,6 +9,10 @@ function shift_arg()
     return r
 end
 
+function print_err(msg, ...)
+    io.stderr:write("[ERROR] ", string.format(msg, ...), "\n")
+end
+
 function add_timeshift(str, d) 
     time_pattern = "^(%d+):(%d+):(%d+),(%d+)$"
     h, m, s, ms = string.match(str, time_pattern)
@@ -39,26 +43,39 @@ while true do
     if cmd == nil then
         break
     elseif cmd == "-o" then
-        -- TODO: add possibility to specify output file
-        assert(false)
+        if output_path ~= nil then
+            print_err("duplicate '-o' flag")
+            os.exit(false)
+        end
+        output_path = shift_arg()
+        if output_path == nil then
+            print_err("missing argument after '-o' flag")
+            os.exit(false)
+        end
     elseif cmd == "-d" then
+        -- TODO: allow 'human readable' times (e.g. '5s' gets parsed as 5000 milliseconds)
         time_str = shift_arg()
         timeshift = tonumber(time_str)
         assert(type(timeshift) == "number")
         assert(math.type(timeshift) == "integer")
     else
-        assert(input_path == nil)
+        if input_path ~= nil then
+            print_err("excess argument '%s'", cmd)
+            os.exit(false)
+        end
         input_path = cmd
     end
 end
 
 if timeshift == nil then
-    error("No timeshift value given")
+    print_err("no timeshift value given")
+    os.exit(false)
 end
 
 input_file = io.open(input_path, "r")
 if io.type(input_file) ~= "file" then
-    error(string.format("Could not open file '%p'", input_path))
+    print_err("Could not open file '%s'", input_path)
+    os.exit(false)
 end
 
 if output_path == nil then
@@ -67,7 +84,8 @@ if output_path == nil then
 end
 output_file = io.open(output_path, "w")
 if io.type(output_file) ~= "file" then
-    error(string.format("Could not open file '%p'", output_path))
+    print_err("Could not open file '%s'", output_path)
+    os.exit(false)
 end
 
 state = "nr"
