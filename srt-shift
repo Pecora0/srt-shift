@@ -93,6 +93,7 @@ if io.type(output_file) ~= "file" then
 end
 
 state = "nr"
+line_nr = 1
 for l in input_file:lines("L") do
     if state == "nr" then
         output_file:write(l)
@@ -102,9 +103,10 @@ for l in input_file:lines("L") do
 
         t1 = add_timeshift(t1, timeshift)
         t2 = add_timeshift(t2, timeshift)
-        assert(t1)
-        assert(t2)
-        -- TODO: account for t1, t2 being nil (in case of timeshift being to big)
+        if t1 == nil or t2 == nil then
+            print_err("line %d: applying timeshift would result in negative timestamp, that is not possible", line_nr)
+            os.exit(false)
+        end
 
         new_l = string.format("%s --> %s%s", t1, t2, rest)
         output_file:write(new_l);
@@ -117,6 +119,7 @@ for l in input_file:lines("L") do
     else
         error("state was assigned wrong")
     end
+    line_nr = line_nr + 1
 end
 
 io.close(output_file)
