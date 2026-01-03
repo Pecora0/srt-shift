@@ -79,8 +79,12 @@ if io.type(input_file) ~= "file" then
 end
 
 if output_path == nil then
-    -- TODO: better modify the input path instead of using a generic name
-    output_path = "out.srt"
+    name, ext = string.match(input_path, "^(.*)%.(.-)$")
+    if name == nil then
+        output_path = "out.srt"
+    else
+        output_path = string.format("%s-out.%s", name, ext)
+    end
 end
 output_file = io.open(output_path, "w")
 if io.type(output_file) ~= "file" then
